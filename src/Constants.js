@@ -105,7 +105,7 @@ export const COLORS_DARK_THEME = {
   IS_LIGHT_THEME: false,
 };
 
-export const BASE_URL_PROD = 'https://tjproductions.xyz';
+export const BASE_URL_PROD = 'http://13.127.239.243';
 export const BASE_URL_DEBUG = 'http://192.168.0.103:8000';
 export const BASE_URL = __DEV__ ? BASE_URL_DEBUG : BASE_URL_PROD;
 
@@ -495,4 +495,5 @@ export {ADS_MANAGER};
 
 export const REMOTE_CONFIG_PARAMS = {
   AWS_IMAGE_ADDER: 'AWS_IMAGE_ADDER',
+  BASE_URL_PROD: 'BASE_URL_PROD',
 };

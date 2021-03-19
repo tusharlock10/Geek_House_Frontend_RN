@@ -16,6 +16,13 @@ const httpClient = () => {
   instance.interceptors.request.use((req) => {
     analysis.requestTime = new Date();
     analysis.url = req.url;
+    if (__DEV__) {
+      console.log(`HTTPS REQUEST ${analysis.url} `, {
+        data: req.data,
+        params: req.data,
+        authtoken: req.headers.common.Authorization,
+      });
+    }
     return req;
   });
   instance.interceptors.response.use((res) => {
@@ -23,7 +30,7 @@ const httpClient = () => {
     res.analysis = analysis;
     if (__DEV__) {
       console.log(
-        `${analysis.url} : ${
+        `HTTPS RESPONSE : ${analysis.url} ${
           (analysis.responseTime - analysis.requestTime) / 1000
         }s `,
       );

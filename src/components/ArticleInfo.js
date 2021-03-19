@@ -1,4 +1,4 @@
-import React, {Component} from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import _ from 'lodash';
-import {connect} from 'react-redux';
+import {useSelector, useDispatch} from 'react-redux';
 import Icon from 'react-native-vector-icons/Feather';
 import IconMaterial from 'react-native-vector-icons/MaterialIcons';
 import StarRating from 'react-native-star-rating';
@@ -19,12 +19,10 @@ import {
   submitComment,
   getArticleInfo,
   bookmarkArticle,
-  resetSelectedArticleInfo,
 } from '../actions/ArticleInfoAction';
 import {setContents, setImage} from '../actions/WriteAction';
 import {
   FONTS,
-  COLOR_COMBOS,
   COLORS_LIGHT_THEME,
   COLORS_DARK_THEME,
   SCREENS,
@@ -37,7 +35,6 @@ import Overlay from './Overlay';
 import NativeAdsComponent from './NativeAdsComponent';
 import Avatar from './Avatar';
 import moment from 'moment';
-import TimedAlert from './TimedAlert';
 import Ripple from './Ripple';
 import {getRingColor, changeBarColors, imageUrlCorrector} from '../utilities';
 
@@ -50,17 +47,33 @@ const PROFILE_IMAGE_MAX_HEIGHT = 76;
 const BORDER_RADIUS = 25; // PROFILE_IMAGE_MAX_HEIGHT/2;
 const TOPIC_SMALL_SIZE = 18;
 
-class ArticleInfo extends Component {
-  state = {
+const ArticleInfo = (props) => {
+  const [state, setState] = useState({
     scrollY: new Animated.Value(0),
     userCommentRating: -1,
     commentText: '',
     adIndex: 0,
     imageViewerActive: false,
-  };
+  });
 
-  componentDidUpdate() {
-    const {selectedArticleInfo, article_id, loading} = this.props;
+  const {
+    userData,
+    canShowAdsRemote,
+    selectedArticleInfo,
+    loading,
+    COLORS,
+  } = useSelector((state) => ({
+    userData: state.login.data,
+    canShowAdsRemote: state.home.welcomeData.canShowAdsRemote,
+    selectedArticleInfo: state.articleInfo.selectedArticleInfo,
+    loading: state.articleInfo.loading,
+    COLORS: state.chat.COLORS,
+  }));
+
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    const {article_id} = props;
 
     let preview_article = false;
     if (article_id === -1) {
@@ -75,17 +88,20 @@ class ArticleInfo extends Component {
       };
     }
 
-    if (selectedArticleInfo.article_id !== article_id && !loading) {
-      this.props.getArticleInfo(article_id, preview_article);
+    if (
+      article_id &&
+      selectedArticleInfo.article_id !== article_id &&
+      !loading
+    ) {
+      dispatch(getArticleInfo(article_id, preview_article));
     }
-  }
+  }, [props.article_id]);
 
-  renderCardViews(cards) {
-    const {adIndex} = this.state;
-    const {canShowAdsRemote, COLORS} = this.props;
+  function renderCardViews(cards) {
+    const {adIndex} = state;
 
     if (!adIndex && cards) {
-      this.setState({adIndex: _.random(1, cards.length - 1)});
+      setState({...state, adIndex: _.random(1, cards.length - 1)});
     }
 
     if (cards) {
@@ -109,7 +125,7 @@ class ArticleInfo extends Component {
     }
   }
 
-  getInitials(name) {
+  function getInitials(name) {
     if (!name) {
       return null;
     }
@@ -120,9 +136,8 @@ class ArticleInfo extends Component {
     return initials;
   }
 
-  showStarRating() {
-    const {selectedArticleInfo, COLORS} = this.props;
-    const {userCommentRating} = this.state;
+  function showStarRating() {
+    const {userCommentRating} = state;
 
     if (selectedArticleInfo.cannotComment) {
       return null;
@@ -131,7 +146,7 @@ class ArticleInfo extends Component {
     return (
       <StarRating
         selectedStar={(rating) => {
-          this.setState({userCommentRating: rating});
+          setState({...state, userCommentRating: rating});
         }}
         activeOpacity={0.8}
         maxStars={5}
@@ -151,9 +166,9 @@ class ArticleInfo extends Component {
     );
   }
 
-  renderCommentBox() {
-    const {commentText, userCommentRating} = this.state;
-    const {COLORS, userData, article_id} = this.props;
+  function renderCommentBox() {
+    const {commentText, userCommentRating} = state;
+    const {article_id} = props;
 
     return (
       <View>
@@ -167,7 +182,7 @@ class ArticleInfo extends Component {
           <TextInput
             value={commentText}
             onChangeText={(text) => {
-              this.setState({commentText: text});
+              setState({...state, commentText: text});
             }}
             textAlignVertical="top"
             keyboardAppearance="light"
@@ -182,7 +197,7 @@ class ArticleInfo extends Component {
             returnKeyType={'done'}
             style={{fontFamily: FONTS.LATO, fontSize: 16, color: COLORS.DARK}}
           />
-          {this.showStarRating()}
+          {showStarRating()}
         </View>
         <TouchableOpacity
           style={{
@@ -195,20 +210,19 @@ class ArticleInfo extends Component {
           }}
           onPress={() => {
             if (userCommentRating !== -1 || commentText) {
-              this.props.submitComment(
-                {
-                  rating: userCommentRating,
-                  comment: commentText,
-                  article_id: article_id,
-                },
-                userData.name,
-                userData.image_url,
+              dispatch(
+                submitComment(
+                  {
+                    rating: userCommentRating,
+                    comment: commentText,
+                    article_id: article_id,
+                  },
+                  userData.name,
+                  userData.image_url,
+                ),
               );
             } else {
-              this.timedAlert.showAlert(
-                2000,
-                'Please provide a rating or comment',
-              );
+              timedAlert.showAlert(2000, 'Please provide a rating or comment');
             }
           }}>
           <IconMaterial
@@ -221,8 +235,8 @@ class ArticleInfo extends Component {
     );
   }
 
-  renderOptions() {
-    const {COLORS, selectedArticleInfo, article_id} = this.props;
+  function renderOptions() {
+    const {article_id} = props;
     const {
       cards,
       topic,
@@ -241,7 +255,7 @@ class ArticleInfo extends Component {
       return {...card, key: index};
     });
 
-    if (this.props.article_id === -1) {
+    if (props.article_id === -1) {
       return null;
     }
 
@@ -268,13 +282,17 @@ class ArticleInfo extends Component {
             paddingVertical: 10,
           }}
           onPress={() => {
-            // this.props.getArticleInfo(article_id, false);
-            this.setState({scrollY: new Animated.Value(0), adIndex: _.random});
-            this.props.onBackdropPress();
+            // props.getArticleInfo(article_id, false);
+            setState({
+              ...state,
+              scrollY: new Animated.Value(0),
+              adIndex: _.random,
+            });
+            props.onBackdropPress();
             changeBarColors(COLORS.LIGHT, COLORS.IS_LIGHT_THEME);
-            this.props.setContents(contents, topic, category, article_id);
-            this.props.setImage({uri: image});
-            this.props.navigation.navigate(SCREENS.WriteArticle, {article_id});
+            dispatch(setContents(contents, topic, category, article_id));
+            dispatch(setImage({uri: image}));
+            props.navigation.navigate(SCREENS.WriteArticle, {article_id});
           }}>
           <Icon name="edit-2" size={16} color={COLORS.YELLOW} />
           <Text
@@ -316,7 +334,7 @@ class ArticleInfo extends Component {
             justifyContent: 'center',
           }}
           onPress={() => {
-            this.props.bookmarkArticle(article_id, bookmarked);
+            dispatch(bookmarkArticle(article_id, bookmarked));
           }}>
           <IconMaterial
             name={bookmarked ? 'bookmark' : 'bookmark-outline'}
@@ -369,8 +387,7 @@ class ArticleInfo extends Component {
     );
   }
 
-  renderComments(comments) {
-    const {COLORS, selectedArticleInfo} = this.props;
+  function renderComments(comments) {
     const {cannotComment, my_article} = selectedArticleInfo;
 
     if (cannotComment) {
@@ -399,7 +416,7 @@ class ArticleInfo extends Component {
             padding: 10,
             margin: 10,
           }}>
-          {my_article ? null : this.renderCommentBox()}
+          {my_article ? null : renderCommentBox()}
 
           {comments && comments.length !== 0 ? (
             comments.map((item, index) => {
@@ -502,11 +519,7 @@ class ArticleInfo extends Component {
     );
   }
 
-  getGradientColor() {
-    return COLOR_COMBOS[Math.floor(Math.random() * COLOR_COMBOS.length)];
-  }
-
-  convertTopic(topic) {
+  function convertTopic(topic) {
     if (topic) {
       if (topic.length < 22) {
         return topic.toUpperCase();
@@ -516,8 +529,8 @@ class ArticleInfo extends Component {
     }
   }
 
-  renderArticle() {
-    const {COLORS, article_id, loading} = this.props;
+  function renderArticle() {
+    const {article_id} = props;
     const {
       author,
       author_image,
@@ -531,7 +544,7 @@ class ArticleInfo extends Component {
       cannotComment,
       date_created,
       image,
-    } = this.props.selectedArticleInfo;
+    } = selectedArticleInfo;
 
     const imageSource = image
       ? {uri: imageUrlCorrector(image)}
@@ -541,52 +554,52 @@ class ArticleInfo extends Component {
 
     const ring_color = getRingColor(author_userXP);
 
-    const headerHeight = this.state.scrollY.interpolate({
+    const headerHeight = state.scrollY.interpolate({
       inputRange: [0, HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT],
       outputRange: [0, -HEADER_MAX_HEIGHT + HEADER_MIN_HEIGHT],
       extrapolate: 'clamp',
     });
-    const imageAnim = this.state.scrollY.interpolate({
+    const imageAnim = state.scrollY.interpolate({
       inputRange: [0, HEADER_MAX_HEIGHT],
       outputRange: [0, -HEADER_MAX_HEIGHT],
       // extrapolate:'clamp'
     });
-    const textAnim = this.state.scrollY.interpolate({
+    const textAnim = state.scrollY.interpolate({
       inputRange: [0, HEADER_MAX_HEIGHT],
       outputRange: [0, (HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT) / 2],
       // extrapolate:'clamp'
     });
 
-    const scaleToZero = this.state.scrollY.interpolate({
+    const scaleToZero = state.scrollY.interpolate({
       inputRange: [0, HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT],
       outputRange: [1, 0.4],
       extrapolate: 'clamp',
     });
 
-    const opacityChange = this.state.scrollY.interpolate({
+    const opacityChange = state.scrollY.interpolate({
       inputRange: [0, HEADER_MAX_HEIGHT * 1.2],
       outputRange: [1, 0],
       extrapolate: 'clamp',
     });
 
-    const bigImageOpacity = this.state.scrollY.interpolate({
+    const bigImageOpacity = state.scrollY.interpolate({
       inputRange: [0, HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT],
       outputRange: [1, 0.15],
       extrapolate: 'clamp',
     });
 
-    const bigImageScale = this.state.scrollY.interpolate({
+    const bigImageScale = state.scrollY.interpolate({
       inputRange: [0, HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT],
       outputRange: [1, 1.1],
       extrapolate: 'clamp',
     });
 
-    const pictureRotate = this.state.scrollY.interpolate({
+    const pictureRotate = state.scrollY.interpolate({
       inputRange: [0, HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT],
       outputRange: ['360deg', '120deg'],
       extrapolate: 'clamp',
     });
-    const headerTextTranslate = this.state.scrollY.interpolate({
+    const headerTextTranslate = state.scrollY.interpolate({
       inputRange: [0, HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT],
       outputRange: [
         HEADER_MAX_HEIGHT,
@@ -653,11 +666,11 @@ class ArticleInfo extends Component {
                 textAlign: 'center',
                 fontFamily: FONTS.NOE_DISPLAY,
               }}>
-              {this.convertTopic(topic)}
+              {convertTopic(topic)}
             </Text>
           </Animated.View>
           <Animated.View
-            onPress={() => this.setState({imageViewerActive: true})}
+            onPress={() => setState({...state, imageViewerActive: true})}
             style={{
               top: -PROFILE_IMAGE_MAX_HEIGHT / 2,
               alignSelf: 'flex-start',
@@ -698,7 +711,7 @@ class ArticleInfo extends Component {
           }}
           style={{flex: 1}}
           onScroll={Animated.event(
-            [{nativeEvent: {contentOffset: {y: this.state.scrollY}}}],
+            [{nativeEvent: {contentOffset: {y: state.scrollY}}}],
             {useNativeDriver: true},
           )}>
           <View
@@ -795,10 +808,10 @@ class ArticleInfo extends Component {
           </View>
           <View style={{height: 20}} />
 
-          {this.renderCardViews(cards)}
-          {this.renderOptions()}
+          {renderCardViews(cards)}
+          {renderOptions()}
           {article_id !== -1 ? (
-            this.renderComments(comments)
+            renderComments(comments)
           ) : (
             <View style={{width: '100%', margin: 10}}>
               <Text
@@ -818,57 +831,34 @@ class ArticleInfo extends Component {
     );
   }
 
-  render() {
-    const {COLORS, isVisible} = this.props;
+  const {isVisible} = props;
 
-    if (!isVisible) {
-      return null;
-    }
-
-    return (
-      <Overlay
-        isVisible={isVisible}
-        overlayStyle={{...styles.OverlayStyle, backgroundColor: COLORS.LIGHT}}
-        onModalShow={() =>
-          changeBarColors(COLORS.OVERLAY_COLOR, COLORS.IS_LIGHT_THEME)
-        }
-        onModalHide={() => changeBarColors(COLORS.LIGHT, COLORS.IS_LIGHT_THEME)}
-        onBackdropPress={() => {
-          // this.props.getArticleInfo(article_id, false);
-          this.setState({scrollY: new Animated.Value(0), adIndex: _.random});
-          this.props.onBackdropPress();
-          changeBarColors(COLORS.LIGHT, COLORS.IS_LIGHT_THEME);
-        }}
-        width={`${OVERLAY_WIDTH_PERCENT}%`}
-        height="90%">
-        <TimedAlert onRef={(ref) => (this.timedAlert = ref)} COLORS={COLORS} />
-        {this.renderArticle()}
-      </Overlay>
-    );
+  if (!isVisible) {
+    return null;
   }
-}
 
-const mapStateToProps = (state) => {
-  return {
-    userData: state.login.data,
-
-    canShowAdsRemote: state.home.welcomeData.canShowAdsRemote,
-
-    selectedArticleInfo: state.articleInfo.selectedArticleInfo,
-    loading: state.articleInfo.loading,
-
-    COLORS: state.chat.COLORS,
-  };
+  return (
+    <Overlay
+      isVisible={isVisible}
+      overlayStyle={{...styles.OverlayStyle, backgroundColor: COLORS.LIGHT}}
+      onModalShow={() =>
+        changeBarColors(COLORS.OVERLAY_COLOR, COLORS.IS_LIGHT_THEME)
+      }
+      onModalHide={() => changeBarColors(COLORS.LIGHT, COLORS.IS_LIGHT_THEME)}
+      onBackdropPress={() => {
+        // props.getArticleInfo(article_id, false);
+        setState({...state, scrollY: new Animated.Value(0), adIndex: _.random});
+        props.onBackdropPress();
+        changeBarColors(COLORS.LIGHT, COLORS.IS_LIGHT_THEME);
+      }}
+      width={`${OVERLAY_WIDTH_PERCENT}%`}
+      height="90%">
+      {renderArticle()}
+    </Overlay>
+  );
 };
 
-export default connect(mapStateToProps, {
-  setImage,
-  setContents,
-  submitComment,
-  getArticleInfo,
-  bookmarkArticle,
-  resetSelectedArticleInfo,
-})(ArticleInfo);
+export default ArticleInfo;
 
 const styles = StyleSheet.create({
   OverlayStyle: {
